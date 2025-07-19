@@ -1,0 +1,942 @@
+--[[ Variables ]]--
+
+local players = game:GetService("Players");
+local runService = game:GetService("RunService");
+local userInputService = game:GetService("UserInputService");
+
+local localPlayer = players.LocalPlayer;
+local camera = workspace.CurrentCamera;
+
+--[[ Utilities ]]--
+
+local function create(objType: string, props: {[string]: any}, children: {[string]: any}?): {[string]: any}
+    local obj = Instance.new(objType);
+    for i, v in props do
+        if i ~= "Parent" then
+			obj[i] = v;
+		end
+    end
+	if children then
+		for _, v in children do
+			v.Parent = obj;
+		end
+	end
+	obj.Parent = objType == "ScreenGui" and game:GetService("CoreGui") or props.Parent;
+    return obj;
+end
+
+local function worldToViewportPoint(pos: Vector3): (Vector2, boolean, number)
+    local vec3, vis = camera:WorldToViewportPoint(pos);
+    return Vector2.new(vec3.X, vec3.Y), vis, vec3.Z;
+end
+
+--[[ Types ]]--
+
+export type CharacterType = "R6" | "R15" | "BadBusiness";
+
+local CharacterTypes = {
+	R6 = "R6" :: "R6",
+	R15 = "R15" :: "R15",
+	BadBusiness = "BadBusiness" :: "BadBusiness"
+};
+
+export type BoxUpdateMode = "Quality" | "Performance" | "Balanced";
+
+local BoxUpdateModes = {
+	Quality = "Quality" :: "Quality",
+	Performance = "Performance" :: "Performance",
+	Balanced = "Balanced" :: "Balanced"
+};
+
+export type BoxRenderMode = "Full" | "Corner";
+
+local BoxRenderModes = {
+	Full = "Full" :: "Full",
+	Corner = "Corner" :: "Corner"
+};
+
+export type TracerOrigin = "Top" | "Bottom" | "Center" | "Mouse";
+
+local TracerOrigins = {
+	Top = "Top" :: "Top",
+	Bottom = "Bottom" :: "Bottom",
+	Center = "Center" :: "Center",
+	Mouse = "Mouse" :: "Mouse"
+};
+
+export type GameSpecificOverwrite = "BadBusiness";
+
+local GameSpecificOverwrites = {
+	BadBusiness = "BadBusiness" :: "BadBusiness"
+};
+
+--[[ Bounding Boxes ]]--
+
+local characterMaps = {
+	[CharacterTypes.R6] = {
+		Head = function(sx: number, sy: number, sz: number, pos: Vector3, front: Vector3, right: Vector3, up: Vector3): {[number]: Vector3}
+			return {
+				pos + front * sz + right * sx + up * sy,
+				pos + front * sz - right * sx + up * sy,
+				pos - front * sz + right * sx + up * sy,
+				pos - front * sz - right * sx + up * sy
+			};
+		end,
+		["Left Arm"] = function(sx: number, sy: number, sz: number, pos: Vector3, front: Vector3, right: Vector3, up: Vector3): {[number]: Vector3}
+			return {
+				pos + front * sz - right * sx + up * sy,
+				pos + front * sz - right * sx - up * sy,
+				pos - front * sz - right * sx + up * sy,
+				pos - front * sz - right * sx - up * sy
+			};
+		end,
+		["Left Leg"] = function(sx: number, sy: number, sz: number, pos: Vector3, front: Vector3, right: Vector3, up: Vector3): {[number]: Vector3}
+			return {
+				pos + front * sz + right * sx - up * sy,
+				pos + front * sz - right * sx - up * sy,
+				pos - front * sz + right * sx - up * sy,
+				pos - front * sz - right * sx - up * sy
+			};
+		end,
+		["Right Arm"] = function(sx: number, sy: number, sz: number, pos: Vector3, front: Vector3, right: Vector3, up: Vector3): {[number]: Vector3}
+			return {
+				pos + front * sz + right * sx + up * sy,
+				pos + front * sz + right * sx - up * sy,
+				pos - front * sz + right * sx + up * sy,
+				pos - front * sz + right * sx - up * sy
+			};
+		end,
+		["Right Leg"] = function(sx: number, sy: number, sz: number, pos: Vector3, front: Vector3, right: Vector3, up: Vector3): {[number]: Vector3}
+			return {
+				pos + front * sz + right * sx - up * sy,
+				pos + front * sz - right * sx - up * sy,
+				pos - front * sz + right * sx - up * sy,
+				pos - front * sz - right * sx - up * sy
+			};
+		end
+	},
+	[CharacterTypes.R15] = {
+		Head = function(sx: number, sy: number, sz: number, pos: Vector3, front: Vector3, right: Vector3, up: Vector3): {[number]: Vector3}
+			return {
+				pos + front * sz + right * sx + up * sy,
+				pos + front * sz - right * sx + up * sy,
+				pos - front * sz + right * sx + up * sy,
+				pos - front * sz - right * sx + up * sy
+			};
+		end,
+		LeftFoot = function(sx: number, sy: number, sz: number, pos: Vector3, front: Vector3, right: Vector3, up: Vector3): {[number]: Vector3}
+			return {
+				pos + front * sz + right * sx - up * sy,
+				pos + front * sz - right * sx - up * sy,
+				pos - front * sz + right * sx - up * sy,
+				pos - front * sz - right * sx - up * sy
+			};
+		end,
+		LeftHand = function(sx: number, sy: number, sz: number, pos: Vector3, front: Vector3, right: Vector3, up: Vector3): {[number]: Vector3}
+			return {
+				pos + front * sz - right * sx + up * sy,
+				pos + front * sz - right * sx - up * sy,
+				pos - front * sz - right * sx + up * sy,
+				pos - front * sz - right * sx - up * sy
+			};
+		end,
+		LeftUpperArm = function(sx: number, sy: number, sz: number, pos: Vector3, front: Vector3, right: Vector3, up: Vector3): {[number]: Vector3}
+			return {
+				pos + front * sz - right * sx + up * sy,
+				pos + front * sz - right * sx - up * sy,
+				pos - front * sz - right * sx + up * sy,
+				pos - front * sz - right * sx - up * sy
+			};
+		end,
+		LowerTorso = function(sx: number, sy: number, sz: number, pos: Vector3, front: Vector3, right: Vector3, up: Vector3): {[number]: Vector3}
+			return {
+				pos - front * sz + right * sx - up * sy,
+				pos - front * sz - right * sx - up * sy
+			};
+		end,
+		RightFoot = function(sx: number, sy: number, sz: number, pos: Vector3, front: Vector3, right: Vector3, up: Vector3): {[number]: Vector3}
+			return {
+				pos + front * sz + right * sx - up * sy,
+				pos + front * sz - right * sx - up * sy,
+				pos - front * sz + right * sx - up * sy,
+				pos - front * sz - right * sx - up * sy
+			};
+		end,
+		RightHand = function(sx: number, sy: number, sz: number, pos: Vector3, front: Vector3, right: Vector3, up: Vector3): {[number]: Vector3}
+			return {
+				pos + front * sz + right * sx + up * sy,
+				pos + front * sz + right * sx - up * sy,
+				pos - front * sz + right * sx + up * sy,
+				pos - front * sz + right * sx - up * sy
+			};
+		end,
+		RightUpperArm = function(sx: number, sy: number, sz: number, pos: Vector3, front: Vector3, right: Vector3, up: Vector3): {[number]: Vector3}
+			return {
+				pos + front * sz + right * sx + up * sy,
+				pos + front * sz + right * sx - up * sy,
+				pos - front * sz + right * sx + up * sy,
+				pos - front * sz + right * sx - up * sy
+			};
+		end
+	},
+	[CharacterTypes.BadBusiness] = {
+		Head = function(sx: number, sy: number, sz: number, pos: Vector3, front: Vector3, right: Vector3, up: Vector3): {[number]: Vector3}
+			return {
+				pos + front * sz + right * sx + up * sy,
+				pos + front * sz - right * sx + up * sy,
+				pos - front * sz + right * sx + up * sy,
+				pos - front * sz - right * sx + up * sy
+			};
+		end,
+		LeftArm = function(sx: number, sy: number, sz: number, pos: Vector3, front: Vector3, right: Vector3, up: Vector3): {[number]: Vector3}
+			return {
+				pos + front * sz - right * sx + up * sy,
+				pos + front * sz - right * sx - up * sy,
+				pos - front * sz - right * sx + up * sy,
+				pos - front * sz - right * sx - up * sy
+			};
+		end,
+		LeftFoot = function(sx: number, sy: number, sz: number, pos: Vector3, front: Vector3, right: Vector3, up: Vector3): {[number]: Vector3}
+			return {
+				pos + front * sz + right * sx - up * sy,
+				pos + front * sz - right * sx - up * sy,
+				pos - front * sz + right * sx - up * sy,
+				pos - front * sz - right * sx - up * sy
+			};
+		end,
+		LeftHand = function(sx: number, sy: number, sz: number, pos: Vector3, front: Vector3, right: Vector3, up: Vector3): {[number]: Vector3}
+			return {
+				pos + front * sz + right * sx - up * sy,
+				pos + front * sz - right * sx - up * sy,
+				pos - front * sz + right * sx - up * sy,
+				pos - front * sz - right * sx - up * sy
+			};
+		end,
+		LeftLeg = function(sx: number, sy: number, sz: number, pos: Vector3, front: Vector3, right: Vector3, up: Vector3): {[number]: Vector3}
+			return {
+				pos + front * sz + right * sx - up * sy,
+				pos + front * sz - right * sx - up * sy
+			};
+		end,
+		RightArm = function(sx: number, sy: number, sz: number, pos: Vector3, front: Vector3, right: Vector3, up: Vector3): {[number]: Vector3}
+			return {
+				pos + front * sz + right * sx + up * sy,
+				pos + front * sz + right * sx - up * sy,
+				pos - front * sz + right * sx + up * sy,
+				pos - front * sz + right * sx - up * sy
+			};
+		end,
+		RightFoot = function(sx: number, sy: number, sz: number, pos: Vector3, front: Vector3, right: Vector3, up: Vector3): {[number]: Vector3}
+			return {
+				pos + front * sz + right * sx - up * sy,
+				pos + front * sz - right * sx - up * sy,
+				pos - front * sz + right * sx - up * sy,
+				pos - front * sz - right * sx - up * sy
+			};
+		end,
+		RightHand = function(sx: number, sy: number, sz: number, pos: Vector3, front: Vector3, right: Vector3, up: Vector3): {[number]: Vector3}
+			return {
+				pos + front * sz + right * sx - up * sy,
+				pos + front * sz - right * sx - up * sy,
+				pos - front * sz + right * sx - up * sy,
+				pos - front * sz - right * sx - up * sy
+			};
+		end,
+		RightLeg = function(sx: number, sy: number, sz: number, pos: Vector3, front: Vector3, right: Vector3, up: Vector3): {[number]: Vector3}
+			return {
+				pos + front * sz + right * sx - up * sy,
+				pos + front * sz - right * sx - up * sy
+			};
+		end
+	},
+	Accessories = {
+		Hair = function(sx: number, sy: number, sz: number, pos: Vector3, front: Vector3, right: Vector3, up: Vector3): {[number]: Vector3}
+			return {
+				pos + front * sz + right * sx + up * sy,
+				pos + front * sz - right * sx + up * sy,
+				pos - front * sz + right * sx + up * sy,
+				pos - front * sz - right * sx + up * sy
+			};
+		end,
+		Back = function(sx: number, sy: number, sz: number, pos: Vector3, front: Vector3, right: Vector3, up: Vector3): {[number]: Vector3}
+			return {
+				pos - front * sz + right * sx + up * sy,
+				pos - front * sz + right * sx - up * sy,
+				pos - front * sz - right * sx + up * sy,
+				pos - front * sz - right * sx - up * sy
+			};
+		end
+	}
+};
+
+local function getBoundingBox(model: Model, characterType: CharacterType, updateMode: BoxUpdateMode, checkAccessories: boolean): (Vector2, Vector2)
+	local minx, miny = math.huge, math.huge;
+    local maxx, maxy = 0, 0;
+
+    local cache = {};
+
+	if updateMode == BoxUpdateModes.Quality then
+		local characterMap = characterMaps[characterType];
+
+		for _, v in model:GetChildren() do
+			local object, objectName = v, v.Name;
+			if checkAccessories and v:IsA("Accessory") then
+				if v.AccessoryType == Enum.AccessoryType.Hair or v.AccessoryType == Enum.AccessoryType.Hat then
+					object, objectName = v:FindFirstChild("Handle"), "Hair";
+				elseif v.AccessoryType == Enum.AccessoryType.Back then
+					object, objectName = v:FindFirstChild("Handle"), "Back";
+				end
+			end
+
+			if object and object:IsA("BasePart") then
+				local objectMap = characterMap[objectName] or characterMaps.Accessories[objectName];
+				if objectMap then
+					local cf, size = object.CFrame, object.Size;
+					for _, v2 in objectMap(size.X / 2, size.Y / 2, size.Z / 2, cf.Position, cf.LookVector, cf.RightVector, cf.UpVector) do
+						cache[#cache + 1] = v2;
+					end
+				end
+			end
+		end
+	elseif updateMode == BoxUpdateModes.Balanced then
+		local cframe, size = model:GetBoundingBox();
+		local relative, scale = CFrame.new(cframe.Position, camera.CFrame.Position), size / 2;
+		cache[#cache + 1] = (relative * CFrame.new(scale.X, scale.Y, 0)).Position;
+		cache[#cache + 1] = (relative * CFrame.new(scale.X, -scale.Y, 0)).Position;
+		cache[#cache + 1] = (relative * CFrame.new(-scale.X, scale.Y, 0)).Position;
+		cache[#cache + 1] = (relative * CFrame.new(-scale.X, -scale.Y, 0)).Position;
+	end
+
+    for _, v in cache do
+        local vec2 = worldToViewportPoint(v);
+		if vec2.X < minx then
+			minx = vec2.X;
+		end
+		if vec2.X > maxx then
+			maxx = vec2.X;
+		end
+		if vec2.Y < miny then
+			miny = vec2.Y;
+		end
+		if vec2.Y > maxy then
+			maxy = vec2.Y;
+		end
+    end
+
+    local omin = Vector2.new(minx, miny);
+    return omin, Vector2.new(maxx, maxy) - omin;
+end
+
+local minimumBoxSizeX = 8;
+local minimumBoxSizeY = 12;
+
+local function translateBoxCoordinates(position: Vector2, size: Vector2): (Vector2, Vector2)
+	if size.X >= minimumBoxSizeX and size.Y >= minimumBoxSizeY then
+		return position, size;
+	end
+	local xDiff, yDiff = math.max(minimumBoxSizeX - size.X, 0), math.max(minimumBoxSizeY - size.Y, 0);
+	return Vector2.new(position.X - xDiff / 2, position.Y - yDiff / 2), Vector2.new(size.X + xDiff, size.Y + yDiff);
+end
+
+local fov, focalLength;
+
+local function renewFovData(): number
+	fov = camera.FieldOfView;
+	return (camera.ViewportSize.Y / 2) / math.tan(math.rad(fov) / 2);
+end
+
+local function getBoxScaleFactor(depth: number): number
+	if camera.FieldOfView ~= fov then
+		focalLength = renewFovData();
+	end
+	return 1 / depth * focalLength * 2;
+end
+
+--[[ Head Boxes]]--
+
+local function getHeadSize(headWidth: number, depth: number): UDim2
+	if camera.FieldOfView ~= fov then
+		focalLength = renewFovData();
+	end
+	local screenWidth = headWidth / depth * focalLength * 2;
+	return UDim2.fromOffset(screenWidth, screenWidth);
+end
+
+--[[ Tracers ]]--
+
+local function getTracerPoints(screenPosition: Vector2, screenSize: Vector2, tracerOrigin: TracerOrigin): (Vector2, Vector2)
+	if tracerOrigin == TracerOrigins.Top then
+		return Vector2.new(camera.ViewportSize.X / 2, 0) - screenPosition, Vector2.new(screenSize.X / 2, 0);
+	elseif tracerOrigin == TracerOrigins.Bottom then
+		return Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y) - screenPosition, Vector2.new(screenSize.X / 2, screenSize.Y);
+	elseif tracerOrigin == TracerOrigins.Center then
+		return camera.ViewportSize / 2 - screenPosition, screenSize / 2;
+	elseif tracerOrigin == TracerOrigins.Mouse then
+		return userInputService:GetMouseLocation() - screenPosition, screenSize / 2;
+	end
+end
+
+local function locateLine(frame: Frame, pointA: Vector2, pointB: Vector2): nil
+	local offset = pointA - pointB;
+	frame.Position = UDim2.fromOffset((pointA.X + pointB.X) / 2, (pointA.Y + pointB.Y) / 2);
+	frame.Rotation = math.deg(math.atan2(offset.Y, offset.X));
+	frame.Size = UDim2.fromOffset(offset.Magnitude, 1);
+end
+
+--[[ Library ]]--
+
+local library = {
+    loaded = false,
+	settings = {
+		enabled = true,
+		names = true,
+		boxes = true,
+		health = true,
+		equipped = true,
+		headBoxes = false,
+		skeletons = false,
+		tracers = false,
+		offscreenArrows = true,
+
+		teamCheck = true,
+		distanceCheck = false,
+		distanceLimit = 1500,
+
+		friendlyIcon = false,
+		includeAccessories = false,
+		boxUpdateMode = BoxUpdateModes.Quality,
+		boxRenderMode = BoxRenderModes.Corner,
+		boxTransparency = 0.75,
+		performanceBoxWidth = 2,
+		performanceBoxHeight = 3,
+
+		tracerOrigin = TracerOrigins.Bottom,
+
+		arrowOffset = 350,
+		arrowWidth = 12,
+		arrowHeight = 18
+	},
+    classes = {},
+	utils = {}
+};
+
+function library.utils:GetCharacter(player: Player): (Model, BasePart)
+	local character = player.Character;
+    return character, character and character:FindFirstChild("HumanoidRootPart");
+end
+
+function library.utils:GetCharacterType(character: Model): CharacterType
+	local hum = character:FindFirstChild("Humanoid");
+	if hum == nil then
+		return;
+	end
+	return hum.RigType == Enum.HumanoidRigType.R6 and CharacterTypes.R6 or CharacterTypes.R15;
+end
+
+function library.utils:GetHead(character: Model): BasePart
+	return character:FindFirstChild("Head");
+end
+
+function library.utils:IsAlive(player: Player, character: Model): boolean
+	local hum = character:FindFirstChild("Humanoid");
+	if hum == nil then
+		return false;
+	end
+	return hum.Health > 0;
+end
+
+function library.utils:IsFriendly(player: Player): boolean
+	return player.Team == localPlayer.Team;
+end
+
+function library.utils:IsAdmin(player: Player): boolean
+	return player:IsInGroup(1200769);
+end
+
+function library.utils:GetEquipped(player: Player, character: Model): string
+	return "N/A";
+end
+
+function library.utils:GetHealthData(player: Player, character: Model): (number, number)
+	local hum = character:FindFirstChild("Humanoid");
+	if hum == nil then
+		return;
+	end
+	return math.floor(hum.Health), hum.MaxHealth;
+end
+
+function library.utils:CreateSkeletonMap(model: Model): {[number]: {[number]: BasePart}}
+	local skeletonMap = {};
+	for _, v in model:GetDescendants() do
+		if v.ClassName == "Motor6D" and v.Part0 ~= nil and v.Part0.Transparency <  1 and v.Part1 ~= nil and v.Part1.Transparency <  1 then
+			skeletonMap[#skeletonMap + 1] = { v.Part0, v.Part1 };
+		end
+	end
+	return skeletonMap;
+end
+
+--[[ ESP ]]--
+
+local esp = {}; do
+    esp.__index = esp;
+
+    function esp.new(player: Player): {[string]: any}
+        return setmetatable({
+            player = player,
+			updated = false,
+            data = {
+				bodyParts = {}
+			},
+            container = create("Frame", {
+				Name = player.DisplayName,
+				BackgroundColor3 = Color3.new(1, 1, 1),
+				BackgroundTransparency = library.settings.boxTransparency,
+				BorderSizePixel = 0,
+				Parent = library.gui.containers,
+				Visible = false
+			}, {
+				create("UIStroke", {
+					Name = "stroke",
+					Color = Color3.new(1, 1, 1)
+				}),
+				create("UICorner", {
+					Name = "corner",
+					CornerRadius = UDim.new(0, 2)
+				}),
+				create("TextLabel", {
+					Name = "displayName",
+					AnchorPoint = Vector2.new(0.5, 1),
+					AutomaticSize = Enum.AutomaticSize.XY,
+					BackgroundTransparency = 1,
+					FontFace = Font.new("rbxasset://fonts/families/Inconsolata.json", Enum.FontWeight.SemiBold, Enum.FontStyle.Normal),
+					Position = UDim2.new(0.5, 0, 0, -4),
+					RichText = true,
+					Size = UDim2.new(),
+					Text = player.DisplayName,
+					TextColor3 = Color3.new(1, 1, 1),
+					TextSize = 14,
+					TextStrokeTransparency = 0.5
+				}),
+				create("Frame", {
+					Name = "cornerBoxes",
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					Size = UDim2.fromScale(1, 1)
+				}, {
+					create("Frame", {
+						Name = "topLeftV",
+						AnchorPoint = Vector2.new(1, 0),
+						BackgroundColor3 = Color3.new(1, 1, 1),
+						BorderSizePixel = 0,
+						Size = UDim2.new(0, 1, 0.25, 0)
+					}),
+					create("Frame", {
+						Name = "topLeftH",
+						AnchorPoint = Vector2.new(0, 1),
+						BackgroundColor3 = Color3.new(1, 1, 1),
+						BorderSizePixel = 0,
+						Size = UDim2.new(0.25, 0, 0, 1)
+					}),
+					create("Frame", {
+						Name = "topRightV",
+						BackgroundColor3 = Color3.new(1, 1, 1),
+						BorderSizePixel = 0,
+						Position = UDim2.fromScale(1, 0),
+						Size = UDim2.new(0, 1, 0.25, 0)
+					}),
+					create("Frame", {
+						Name = "topRightH",
+						AnchorPoint = Vector2.new(1, 1),
+						BackgroundColor3 = Color3.new(1, 1, 1),
+						BorderSizePixel = 0,
+						Position = UDim2.fromScale(1, 0),
+						Size = UDim2.new(0.25, 0, 0, 1)
+					}),
+					create("Frame", {
+						Name = "bottomLeftV",
+						AnchorPoint = Vector2.new(1, 1),
+						BackgroundColor3 = Color3.new(1, 1, 1),
+						BorderSizePixel = 0,
+						Position = UDim2.fromScale(0, 1),
+						Size = UDim2.new(0, 1, 0.25, 0)
+					}),
+					create("Frame", {
+						Name = "bottomLeftH",
+						BackgroundColor3 = Color3.new(1, 1, 1),
+						BorderSizePixel = 0,
+						Position = UDim2.fromScale(0, 1),
+						Size = UDim2.new(0.25, 0, 0, 1)
+					}),
+					create("Frame", {
+						Name = "bottomRightV",
+						AnchorPoint = Vector2.new(0, 1),
+						BackgroundColor3 = Color3.new(1, 1, 1),
+						BorderSizePixel = 0,
+						Position = UDim2.fromScale(1, 1),
+						Size = UDim2.new(0, 1, 0.25, 0)
+					}),
+					create("Frame", {
+						Name = "bottomRightH",
+						AnchorPoint = Vector2.new(1, 0),
+						BackgroundColor3 = Color3.new(1, 1, 1),
+						BorderSizePixel = 0,
+						Position = UDim2.fromScale(1, 1),
+						Size = UDim2.new(0.25, 0, 0, 1)
+					})
+				}),
+				create("Frame", {
+					Name = "healthBackground",
+					AnchorPoint = Vector2.new(1, 0.5),
+					BackgroundColor3 = Color3.fromRGB(88, 88, 88),
+					Position = UDim2.new(0, -4, 0.5, 0),
+					Size = UDim2.new(0, 2, 1, 0)
+				}, {
+					create("UIStroke", {
+						Name = "stroke",
+						Transparency = 0.5
+					}),
+					create("UICorner", {
+						Name = "corner",
+						CornerRadius = UDim.new(0, 2)
+					}),
+					create("Frame", {
+						Name = "healthFill",
+						AnchorPoint = Vector2.new(0.5, 1),
+						Position = UDim2.fromScale(0.5, 1),
+						Size = UDim2.fromScale(1, 0)
+					}, {
+						create("TextLabel", {
+							Name = "healthText",
+							AnchorPoint = Vector2.new(1, 0.5),
+							AutomaticSize = Enum.AutomaticSize.XY,
+							BackgroundTransparency = 1,
+							FontFace = Font.new("rbxasset://fonts/families/Inconsolata.json", Enum.FontWeight.SemiBold, Enum.FontStyle.Normal),
+							Position = UDim2.fromOffset(-4, 0),
+							Size = UDim2.new(),
+							Text = "0",
+							TextColor3 = Color3.new(1, 1, 1),
+							TextSize = 14,
+							TextStrokeTransparency = 0.5
+						})
+					})
+				}),
+				create("TextLabel", {
+					Name = "equipped",
+					AnchorPoint = Vector2.new(0.5, 0),
+					AutomaticSize = Enum.AutomaticSize.XY,
+					BackgroundTransparency = 1,
+					FontFace = Font.new("rbxasset://fonts/families/Inconsolata.json", Enum.FontWeight.SemiBold, Enum.FontStyle.Normal),
+					Position = UDim2.new(0.5, 0, 1, 4),
+					Size = UDim2.new(),
+					Text = "Intervention",
+					TextColor3 = Color3.new(1, 1, 1),
+					TextSize = 14,
+					TextStrokeTransparency = 0.5
+				}),
+				create("Frame", {
+					Name = "skeleton",
+					BackgroundTransparency = 1,
+					Size = UDim2.fromScale(1, 1)
+				}),
+				create("Frame", {
+					Name = "headBox",
+					AnchorPoint = Vector2.new(0.5, 0.5),
+					BackgroundColor3 = Color3.new(1, 1, 1),
+					BackgroundTransparency = 0.5
+				}, {
+					create("UIStroke", {
+						Name = "stroke",
+						Transparency = 0.5
+					}),
+					create("UICorner", {
+						Name = "corner",
+						CornerRadius = UDim.new(1, 0)
+					})
+				}),
+				create("Frame", {
+					Name = "tracer",
+					AnchorPoint = Vector2.new(0.5, 0.5),
+					BackgroundColor3 = Color3.new(1, 1, 1),
+					BorderSizePixel = 0
+				})
+			}),
+			offscreenArrow = create("ImageLabel", {
+				Name = player.DisplayName,
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				BackgroundTransparency = 1,
+				Image = "rbxassetid://113347226909972",
+				Parent = library.gui.offscreenArrows,
+				Size = UDim2.fromOffset(20, 20),
+				Visible = false
+			})
+        }, esp);
+    end
+
+    function esp:Update(): nil
+        if self.updated or not library.settings.enabled then
+            return;
+        end
+		
+		local character, rootPart = library.utils:GetCharacter(self.player);
+        if not (character and rootPart) or not library.utils:IsAlive(self.player, character) then
+            return;
+        end
+
+		self.data.magnitude = (rootPart.Position - camera.CFrame.Position).Magnitude;
+		if library.settings.distanceCheck and self.data.magnitude > library.settings.distanceLimit then
+			return;
+		end
+
+		self.data.friendly = library.utils:IsFriendly(self.player);
+		if library.settings.teamCheck and self.data.friendly then
+			return;
+		end
+
+		self.data.rootPosition, self.data.visible, self.data.depth = worldToViewportPoint(rootPart.Position);
+
+		if self.data.visible then
+			if self.data.characterType == nil then
+				self.data.characterType = library.utils:GetCharacterType(character);
+			end
+
+			if self.data.skeletonMap == nil then
+				self.data.skeletonMap = library.utils:CreateSkeletonMap(character);
+				-- local old = getthreadidentity(); -- Volcano having identity based issues ffs
+				-- setthreadidentity(7);
+				for i, _ in self.data.skeletonMap do
+					create("Frame", {
+						Name = i,
+						AnchorPoint = Vector2.new(0.5, 0.5),
+						BackgroundColor3 = Color3.new(1, 1, 1),
+						BorderSizePixel = 0,
+						Parent = self.container.skeleton
+					});
+				end
+				-- setthreadidentity(old);
+			end
+
+			if library.settings.boxUpdateMode == BoxUpdateModes.Performance then
+				local scaleFactor = getBoxScaleFactor(self.data.depth);
+				local screenSize = Vector2.new(math.floor(library.settings.performanceBoxWidth * scaleFactor), math.floor(library.settings.performanceBoxHeight * scaleFactor));
+				self.data.screenPosition, self.data.screenSize = translateBoxCoordinates(self.data.rootPosition - screenSize / 2, screenSize);
+			else
+				self.data.screenPosition, self.data.screenSize = translateBoxCoordinates(getBoundingBox(character, self.data.characterType, library.settings.boxUpdateMode, library.settings.includeAccessories));
+			end
+
+			self.data.currentHealth, self.data.maxHealth = library.utils:GetHealthData(self.player, character);
+			self.data.equipped = library.utils:GetEquipped(self.player, character);
+
+			if library.settings.skeletons then
+				local skeleton = {};
+				for _, v in self.data.skeletonMap do
+					if not skeleton[v[1]] then
+						skeleton[v[1]] = worldToViewportPoint(v[1].Position) - self.data.screenPosition;
+					end
+					if not skeleton[v[2]] then
+						skeleton[v[2]] = worldToViewportPoint(v[2].Position) - self.data.screenPosition;
+					end
+				end
+				self.data.bodyParts = skeleton;
+			end
+
+			local head = library.utils:GetHead(character);
+			local headPosition, _, depth = worldToViewportPoint(head.Position);
+			self.data.headPosition = headPosition;
+			self.data.headSize = getHeadSize(head.Size.Z / 2, depth);
+		else
+			local objectPosition = camera.CFrame:PointToObjectSpace(rootPart.Position);
+			self.data.angle = math.atan2(objectPosition.Z, objectPosition.X);
+			self.data.direction = Vector2.new(math.cos(self.data.angle), math.sin(self.data.angle));
+		end
+		
+        self.updated = true;
+    end
+
+    function esp:Render(): nil
+        if not self.updated then
+            self.container.Visible = false;
+			self.offscreenArrow.Visible = false;
+            return;
+		end
+
+		self.container.Visible = self.data.visible;
+		self.offscreenArrow.Visible = library.settings.offscreenArrows and not self.data.visible;
+
+		if self.data.visible then
+			local screenPosition, screenSize = self.data.screenPosition, self.data.screenSize;
+
+			self.container.Position = UDim2.fromOffset(screenPosition.X, screenPosition.Y);
+			self.container.Size = UDim2.fromOffset(screenSize.X, screenSize.Y);
+			self.container.BackgroundTransparency = library.settings.boxes and library.settings.boxTransparency or 1;
+			self.container.cornerBoxes.Visible = library.settings.boxes and library.settings.boxRenderMode == BoxRenderModes.Corner;
+			self.container.stroke.Transparency = (library.settings.boxes and library.settings.boxRenderMode == BoxRenderModes.Full and 0) or 1;
+
+			self.container.displayName.Text = (library.settings.friendlyIcon and "<font color=\"" .. (self.data.friendly and "#33FF36" or "#FF3336") .. "\">●</font> " or "") .. self.player.DisplayName;
+			self.container.displayName.Visible = library.settings.names;
+			
+			local healthPercentage = self.data.currentHealth / self.data.maxHealth;
+
+			self.container.healthBackground.healthFill.BackgroundColor3 = Color3.new(healthPercentage < 0.5 and 1 or 1 - ((healthPercentage - 0.5) * 2), healthPercentage > 0.5 and 1 or healthPercentage * 2, 0);
+			self.container.healthBackground.healthFill.Size = UDim2.fromScale(1, healthPercentage);
+			self.container.healthBackground.healthFill.healthText.Text = self.data.currentHealth;
+			self.container.healthBackground.Visible = library.settings.health;
+			
+			self.container.equipped.Text = self.data.equipped;
+			self.container.equipped.Visible = library.settings.equipped;
+
+			if library.settings.skeletons then
+				local bodyParts = self.data.bodyParts;
+				for i, v in self.data.skeletonMap do
+					locateLine(self.container.skeleton[i], bodyParts[v[1]], bodyParts[v[2]]);
+				end
+			end
+			self.container.skeleton.Visible = library.settings.skeletons;
+
+			local relativeHeadPosition, headSize = self.data.headPosition - screenPosition, math.min(screenSize.X, screenSize.Y) / 2;
+			self.container.headBox.Position = UDim2.fromOffset(relativeHeadPosition.X, relativeHeadPosition.Y);
+			self.container.headBox.Size = UDim2.fromOffset(headSize, headSize);
+			self.container.headBox.Visible = library.settings.headBoxes;
+
+			locateLine(self.container.tracer, getTracerPoints(self.data.screenPosition, self.data.screenSize, library.settings.tracerOrigin));
+			self.container.tracer.Visible = library.settings.tracers;
+		else
+			local offset = self.data.direction * library.settings.arrowOffset;
+			self.offscreenArrow.Position = UDim2.new(0.5, offset.X, 0.5, offset.Y);
+			self.offscreenArrow.Rotation = 90 + math.deg(self.data.angle);
+			self.offscreenArrow.Size = UDim2.fromOffset(library.settings.arrowWidth, library.settings.arrowHeight);
+		end
+
+        self.updated = false;
+    end
+
+	function esp:Destroy(): nil
+		self.container:Destroy();
+	end
+end
+
+--[[ Main Module ]]--
+
+function library:AddClass(title: string, class: {[string]: any}): nil
+    self.classes[title] = class;
+end
+
+function library:DestroyClass(title: string): nil
+	local class = self.classes[title];
+	if class then
+		self.classes[title] = nil;
+		class:Destroy();
+	end
+end
+
+function library:Load(customLoader: (nil) | nil): nil
+    if self.loaded then
+        return;
+    end
+
+	self.gui = create("ScreenGui", {
+		Name = "esp",
+		DisplayOrder = 999,
+		IgnoreGuiInset = true,
+		ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	}, {
+		create("Folder", {
+			Name = "containers"
+		}),
+		create("Folder", {
+			Name = "offscreenArrows"
+		})
+	});
+
+	if customLoader then
+		customLoader();
+	end
+
+	for _, player in players:GetPlayers() do
+		if player ~= localPlayer then
+			self:AddClass(player.Name .. " - esp", esp.new(player));
+		end
+	end
+
+	players.PlayerAdded:Connect(function(player)
+		self:AddClass(player.Name .. " - esp", esp.new(player));
+	end);
+
+	players.PlayerRemoving:Connect(function(player)
+		self:DestroyClass(player.Name .. " - esp");
+	end);
+
+    runService.RenderStepped:Connect(function()
+		for _, class in self.classes do
+			class:Update();
+		end
+    end);
+
+    runService.Heartbeat:Connect(function()
+        for _, class in self.classes do
+            class:Render();
+        end
+    end);
+end
+
+return library;
+
+-- library:Load();
+
+--[[ Notes ]]--
+
+--[[
+
+Performance increase theory:
+- Map parts to ignore torso since in theory it should never be the outside boundary
+- Ignore insides of arms and legs, bottom of head, that sort of thing
+- Requires individual mapping for R6, R15 and custom characters
+- Drastically cuts down on all the worldToViewportPoint-ing and subsequent iteration required to make the boxes this accurate
+- Brought R6 scans down from 48 to 20 and R15 down from 120 to 30 (plus 4 per supported accessory)
+
+----------------------------------
+---  Character Map Visualiser  ---
+----------------------------------
+
+local camera = workspace.CurrentCamera;
+
+local function highlightParts(model: Model): nil
+	for _, v in model:GetChildren() do
+		local object = v;
+		if v:IsA("Accessory") then
+			object = v:FindFirstChild("Handle");
+		end
+		if object and object:IsA("BasePart") and object.Transparency < 1 then
+			local cf, size = object.CFrame, object.Size;
+			local sx, sy, sz = size.X / 2, size.Y / 2, size.Z / 2;
+			local pos, front, right, up = cf.Position, cf.LookVector, cf.RightVector, cf.UpVector;
+
+			local points = {
+				["pos - front * sz - right * sx - up * sy"] = pos - front * sz - right * sx - up * sy,
+				["pos - front * sz - right * sx + up * sy"] = pos - front * sz - right * sx + up * sy,
+				["pos - front * sz + right * sx - up * sy"] = pos - front * sz + right * sx - up * sy,
+				["pos - front * sz + right * sx + up * sy"] = pos - front * sz + right * sx + up * sy,
+				["pos + front * sz - right * sx - up * sy"] = pos + front * sz - right * sx - up * sy,
+				["pos + front * sz - right * sx + up * sy"] = pos + front * sz - right * sx + up * sy,
+				["pos + front * sz + right * sx - up * sy"] = pos + front * sz + right * sx - up * sy,
+				["pos + front * sz + right * sx + up * sy"] = pos + front * sz + right * sx + up * sy
+			};
+
+			local x = Instance.new("Folder", model);
+			x.Name = v.Name;
+
+			for i2, v2 in points do
+				local y = Instance.new("Part", x);
+				y.Anchored = true;
+				y.CanCollide = false;
+				y.Color = Color3.new(1, 0, 0);
+				y.Position = v2;
+				y.Size = Vector3.new(0.1, 0.1, 0.1);
+				y.Name = i2;
+			end
+		end
+	end
+end
+
+highlightParts(workspace["Bad Business Dummy"]);
+
+]]
