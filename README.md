@@ -206,28 +206,8 @@ Example: R6 scan counts
 
 ------------------------------------------------------------------------------
 
-CUSTOMIZATION
-
-- UI appearance can be edited by changing the create() utility or any UI properties.
-- Extend utility methods (like GetEquipped) for your own game’s logic.
-- Add custom rig mappings to characterMaps for more games or custom rigs.
-- Use ESP:AddClass for NPCs, mobs, or special ESP objects.
-- Team/friendly logic is customizable.
-
-------------------------------------------------------------------------------
-
-NOTES
-
-- All code is fully commented for developers.
-- Example/utility code (such as the visualizer) included at the bottom of the module.
-- Pull requests and issues are welcome!
-
-------------------------------------------------------------------------------
-
 LICENSE & CREDITS
 
-MIT License (or your choice)
-Written by [Your Name/Handle]
-Inspired by open-source ESP libraries and the Roblox dev community.
+Owned By SolixHub
 
-*Happy hacking!*
+*Happy Skidding*
