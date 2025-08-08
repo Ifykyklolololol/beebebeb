@@ -32,37 +32,36 @@ QUICK START
     
 ------------------------------------------------------------------------------
 
-SETTINGS
+## SETTINGS
 
-Configure all features via ESP.settings (can be changed anytime):
+Configure all features via `ESP.settings` (can be changed anytime):
 
-+-----------------------+-----------+-------------------------------------------------------+-----------+
-| Setting               | Type      | Description                                           | Default   |
-+-----------------------+-----------+-------------------------------------------------------+-----------+
-| enabled               | boolean   | Master on/off switch                                  | true      |
-| names                 | boolean   | Show player names                                     | true      |
-| boxes                 | boolean   | Draw ESP boxes                                        | true      |
-| health                | boolean   | Show health bars                                      | true      |
-| equipped              | boolean   | Show equipped item                                    | true      |
-| headBoxes             | boolean   | Draw a head box                                       | false     |
-| skeletons             | boolean   | Draw skeleton lines                                   | false     |
-| tracers               | boolean   | Draw tracer lines                                     | false     |
-| offscreenArrows       | boolean   | Show arrows for offscreen players                     | true      |
-| teamCheck             | boolean   | Hide ESP for same-team players                        | true      |
-| distanceCheck         | boolean   | Only show ESP within distanceLimit                    | false     |
-| distanceLimit         | number    | Max ESP distance                                      | 1500      |
-| friendlyIcon          | boolean   | Show dot for friendly player names                    | false     |
-| includeAccessories    | boolean   | Include hats/hair/backpacks in box calc               | false     |
-| boxUpdateMode         | string    | Box accuracy: Quality, Performance, Balanced          | Quality   |
-| boxRenderMode         | string    | Box style: Full or Corner                             | Corner    |
-| boxTransparency       | number    | Box background transparency (0–1)                     | 0.75      |
-| performanceBoxWidth   | number    | Box width for Performance mode                        | 2         |
-| performanceBoxHeight  | number    | Box height for Performance mode                       | 3         |
-| tracerOrigin          | string    | Top, Bottom, Center, or Mouse                         | Bottom    |
-| arrowOffset           | number    | Offscreen arrow distance from center                  | 350       |
-| arrowWidth            | number    | Offscreen arrow width                                 | 12        |
-| arrowHeight           | number    | Offscreen arrow height                                | 18        |
-+-----------------------+-----------+-------------------------------------------------------+-----------+
+| Setting             | Type      | Description                                       | Default   |
+|---------------------|-----------|---------------------------------------------------|-----------|
+| enabled             | boolean   | Master on/off switch                              | true      |
+| names               | boolean   | Show player names                                 | true      |
+| boxes               | boolean   | Draw ESP boxes                                    | true      |
+| health              | boolean   | Show health bars                                  | true      |
+| equipped            | boolean   | Show equipped item                                | true      |
+| headBoxes           | boolean   | Draw a head box                                   | false     |
+| skeletons           | boolean   | Draw skeleton lines                               | false     |
+| tracers             | boolean   | Draw tracer lines                                 | false     |
+| offscreenArrows     | boolean   | Show arrows for offscreen players                 | true      |
+| teamCheck           | boolean   | Hide ESP for same-team players                    | true      |
+| distanceCheck       | boolean   | Only show ESP within distanceLimit                | false     |
+| distanceLimit       | number    | Max ESP distance                                  | 1500      |
+| friendlyIcon        | boolean   | Show dot for friendly player names                | false     |
+| includeAccessories  | boolean   | Include hats/hair/backpacks in box calc           | false     |
+| boxUpdateMode       | string    | Box accuracy: Quality, Performance, Balanced      | Quality   |
+| boxRenderMode       | string    | Box style: Full or Corner                         | Corner    |
+| boxTransparency     | number    | Box background transparency (0–1)                 | 0.75      |
+| performanceBoxWidth | number    | Box width for Performance mode                    | 2         |
+| performanceBoxHeight| number    | Box height for Performance mode                   | 3         |
+| tracerOrigin        | string    | Top, Bottom, Center, or Mouse                     | Bottom    |
+| arrowOffset         | number    | Offscreen arrow distance from center              | 350       |
+| arrowWidth          | number    | Offscreen arrow width                             | 12        |
+| arrowHeight         | number    | Offscreen arrow height                            | 18        |
+
 
 ------------------------------------------------------------------------------
 
