@@ -1,1 +1,51 @@
+# Roblox ESP Library
+
+A modular, high-performance ESP (Extra Sensory Perception) library for Roblox, designed for maximum extensibility and configurability, supporting R6, R15, Bad Business, and accessories.  
+Draws 2D boxes, names, health, skeletons, tracers, offscreen arrows, and more.
+
+---
+
+## Features
+
+- Full/Corner 2D bounding box ESP for players
+- Name ESP (with optional friendly dot)
+- Healthbar ESP (with color and value)
+- Equipped item display
+- Head box ESP
+- Skeleton ESP (draws Motor6D bone lines)
+- Tracers (from customizable origins)
+- Offscreen arrows
+- Team check, distance check/limit
+- Accessory support (hair, hats, backpacks)
+- Multiple box update and render modes
+- Game-specific mappings (Bad Business)
+- Performance & quality settings
+- Complete utility API for extension
+
+---
+
+## Table of Contents
+
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Settings](#settings)
+- [Types & Modes](#types--modes)
+- [API Reference](#api-reference)
+- [Utilities](#utilities)
+- [Bounding Box Internals](#bounding-box-internals)
+- [ESP Class Structure](#esp-class-structure)
+- [Advanced Mapping & Visualizer](#advanced-mapping--visualizer)
+- [Performance Notes](#performance-notes)
+- [Customization](#customization)
+- [License & Credits](#license--credits)
+
+---
+
+## Installation
+
+Place the library as a ModuleScript in your Roblox project.  
+Require it in your local/client script:
+
+```lua
+local ESP = require(path.to.esp_library)
 
